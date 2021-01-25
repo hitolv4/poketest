@@ -4,3 +4,4 @@ pokemon/migrations/0001_initial.py
 pokemon/migrations/__init__.py
 pokemon/migrations/__pycache__/0001_initial.cpython-38.pyc
 pokemon/migrations/__pycache__/__init__.cpython-38.pyc
+**/.vscode/
