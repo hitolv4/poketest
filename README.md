@@ -16,4 +16,4 @@ python manage.py migrate
 python manage.py runserver
 python manage.py enter_chain to save pokemons in the data base
 enter evolution chain (id number of evolution chain from pokeapi.co)
-them go to http://127.0.0.1:8000/pokemon/{name} in your browser
+then go to http://127.0.0.1:8000/pokemon/{name} in your browser
