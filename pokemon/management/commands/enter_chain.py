@@ -4,89 +4,87 @@ from pokemon.models import Pokemon
 import re
 
 
-def get_chain(chain):
-    url = 'https://pokeapi.co/api/v2/evolution-chain/{}/'.format(chain)
-    r = requests.get(url, headers={'Content-Type': 'application/json'})
-    chain = r.json()
-    query = chain['chain']
-    count = 1
-    data = []
-    while query != []:
-        try:
-            id = re.findall(
-                '[0-9]+', query.get('species').get('url'))[1]
-            pokemon = get_pokemon(id)
-            pokemon['evolve'] = count
-            pokemon['chain-id'] = chain['id']
-            data.append(pokemon)
-            count += 1
-            if len(query['evolves_to']) > 1 and count > 1:
-                for i in range(0, len(query['evolves_to'])):
-                    id = re.findall(
-                        '[0-9]+', query['evolves_to'][i].get('species').get('url'))[1]
-                    pokemon = get_pokemon(id)
-                    pokemon['evolve'] = count
-                    pokemon['chain-id'] = chain['id']
-                    data.append(pokemon)
-            query = query['evolves_to'][0]
-        except IndexError:
-            break
-    data = [i for n, i in enumerate(data) if i not in data[n + 1:]]
-    return data
+class Pokemon_chain:
+    def __init__(self, chain):
+        self.chain = self.get_chain(chain)
+        self.names = self.get_names(self.chain, chain)
+        self.pokemons = self.get_pokemons(self.names)
+        self.save = self.save_pokemon(self.pokemons)
 
+    def get_chain(self, chain):
+        url = f"https://pokeapi.co/api/v2/evolution-chain/{chain}/"
+        r = requests.get(url, headers={'Content-Type': 'application/json'})
+        chain = r.json()
+        data = chain['chain']
+        return data
 
-def save_pokemon(chain):
+    def get_names(self, data, id):
+        data = data
+        names = {}
+        count = 1
+        names[data.get('species').get('name')] = {
+            'evolve': count,
+            'chain-id': id
+        }
 
-    for data in get_chain(chain):
-        try:
-            pokemon = Pokemon(
-                name=data['name'],
-                apiId=data['api-id'],
-                chainId=data['chain-id'],
-                healtPoint=data['hp'],
-                attack=data['attack'],
-                defense=data['defense'],
-                specialAttack=data['special-attack'],
-                specialDefense=data['special-defense'],
-                speed=data['speed'],
-                height=data['height'],
-                weight=data['weight'],
-                evolution=data['evolve']
-            )
-            pokemon.save()
-        except Exception:
-            print("repeated")
+        while data != []:
+            try:
+                count += 1
+                if len(data['evolves_to']) == 1:
+                    for i in range(0, len(data['evolves_to'])):
+                        names[data['evolves_to'][i].get(
+                            'species').get('name')] = {
+                            'evolve': count,
+                            'chain-id': id
+                        }
+                data = data['evolves_to'][0]
+            except IndexError:
+                break
+        return names
 
+    def get_pokemons(self, names):
+        data = {}
+        for k, v in names.items():
+            url = f"https://pokeapi.co/api/v2/pokemon/{k}/"
+            r = requests.get(url, headers={'Content-Type': 'application/json'})
+            pokemon = r.json()
+            data[k] = {
+                'api-id': pokemon['id'],
+                'chain-id': v['chain-id'],
+                'name': pokemon['species']['name'],
+                'hp': pokemon['stats'][0]['base_stat'],
+                'attack': pokemon['stats'][1]['base_stat'],
+                'defense': pokemon['stats'][2]['base_stat'],
+                'special-attack': pokemon['stats'][3]['base_stat'],
+                'special-defense': pokemon['stats'][4]['base_stat'],
+                'speed':  pokemon['stats'][5]['base_stat'],
+                'height': pokemon['height'],
+                'weight': pokemon['weight'],
+                'evolve': v['evolve']
+            }
+        return data
 
-def get_pokemon(id):
-    data = {
-        'api-id': 0,
-        'chain-id': 0,
-        'name': '',
-        'hp': 0,
-        'attack': 0,
-        'defense': 0,
-        'special-attack': 0,
-        'special-defense': 0,
-        'speed':  0,
-        'height': 0,
-        'weight': 0,
-        'evolve': 0
-    }
-    url = 'https://pokeapi.co/api/v2/pokemon/{}'.format(id)
-    r = requests.get(url, headers={'Content-Type': 'application/json'})
-    pokemon = r.json()
-    data['api-id'] = pokemon['id']
-    data['name'] = pokemon['species']['name']
-    data['hp'] = pokemon['stats'][0]['base_stat']
-    data['attack'] = pokemon['stats'][1]['base_stat']
-    data['defense'] = pokemon['stats'][2]['base_stat']
-    data['special-attack'] = pokemon['stats'][3]['base_stat']
-    data['special-defense'] = pokemon['stats'][4]['base_stat']
-    data['speed'] = pokemon['stats'][5]['base_stat']
-    data['height'] = pokemon['height']
-    data['weight'] = pokemon['weight']
-    return data
+    def save_pokemon(self, pokemons):
+
+        for pokemon in pokemons:
+            try:
+                pokemon = Pokemon(
+                    name=pokemons[pokemon]['name'],
+                    apiId=pokemons[pokemon]['api-id'],
+                    chainId=pokemons[pokemon]['chain-id'],
+                    healtPoint=pokemons[pokemon]['hp'],
+                    attack=pokemons[pokemon]['attack'],
+                    defense=pokemons[pokemon]['defense'],
+                    specialAttack=pokemons[pokemon]['special-attack'],
+                    specialDefense=pokemons[pokemon]['special-defense'],
+                    speed=pokemons[pokemon]['speed'],
+                    height=pokemons[pokemon]['height'],
+                    weight=pokemons[pokemon]['weight'],
+                    evolution=pokemons[pokemon]['evolve']
+                )
+                pokemon.save()
+            except Exception:
+                print("repeated")
 
 
 def enter_int():
@@ -114,9 +112,9 @@ def question():
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
-        save_pokemon(enter_int())
+        Pokemon_chain(enter_int())
         q = question()
         while q:
-            save_pokemon(enter_int())
+            Pokemon_chain(enter_int())
             q = question()
         print("completed")
